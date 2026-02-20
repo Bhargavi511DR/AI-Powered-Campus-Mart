@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart - Campus Mart</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .empty-cart {
+            text-align: center;
+            padding: 50px 0;
+        }
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">🏪 Campus Mart</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('products') }}">Products</a>
+                <a class="nav-link" href="{{ url_for('ai_assistant') }}">AI Assistant</a>
+                <a class="nav-link active" href="{{ url_for('cart') }}">
+                    Cart <span id="cartCount" class="badge bg-danger">{{ cart_items|length }}</span>
+                </a>
+                {% if session.user_id %}
+                    <a class="nav-link" href="{{ url_for('logout') }}">Logout ({{ session.username }})</a>
+                {% else %}
+                    <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+                    <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-4">
+        <h1>Your Shopping Cart</h1>
+        
+        {% if cart_items %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart_items %}
+                    <tr id="cart-item-{{ item.product.id }}">
+                        <td>
+                            <strong>{{ item.product.name }}</strong><br>
+                            <small class="text-muted">{{ item.product.description }}</small>
+                        </td>
+                        <td>₹{{ item.product.price }}</td>
+                        <td>
+                            <div class="quantity-controls">
+                                <button class="btn btn-sm btn-outline-secondary update-quantity" 
+                                        data-product-id="{{ item.product.id }}" 
+                                        data-action="decrease">-</button>
+                                <span class="quantity-display">{{ item.quantity }}</span>
+                                <button class="btn btn-sm btn-outline-secondary update-quantity" 
+                                        data-product-id="{{ item.product.id }}" 
+                                        data-action="increase">+</button>
+                            </div>
+                        </td>
+                        <td>₹<span class="item-total">{{ item.item_total }}</span></td>
+                        <td>
+                            <form action="{{ url_for('remove_from_cart', product_id=item.product.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                        <td colspan="2"><strong>₹<span id="grand-total">{{ total }}</span></strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <div class="text-end">
+            <a href="{{ url_for('products') }}" class="btn btn-secondary">Continue Shopping</a>
+            <a href="{{ url_for('checkout') }}" class="btn btn-primary">Proceed to Checkout</a>
+        </div>
+        {% else %}
+        <div class="empty-cart">
+            <h3>Your cart is empty 🛒</h3>
+            <p class="text-muted">Add some products to your cart first!</p>
+            <a href="{{ url_for('products') }}" class="btn btn-primary">Browse Products</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Update quantity functionality
+        document.querySelectorAll('.update-quantity').forEach(button => {
+            button.addEventListener('click', function() {
+                const productId = this.getAttribute('data-product-id');
+                const action = this.getAttribute('data-action');
+                
+                fetch('/update_cart_quantity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        product_id: parseInt(productId),
+                        action: action
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload(); // Refresh to show updated quantities
+                    } else {
+                        alert('Error updating quantity: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error: ' + error);
+                });
+            });
+        });
+
+        // Update cart count in navbar
+        function updateCartCount() {
+            fetch('/get_cart_count')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('cartCount').textContent = data.cart_count;
+                });
+        }
+
+        // Initial cart count update
+        updateCartCount();
+    </script>
+</body>
+</html>
